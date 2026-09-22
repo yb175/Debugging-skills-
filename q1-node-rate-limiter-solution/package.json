@@ -1,0 +1,11 @@
+{
+  "name": "q1-node-rate-limiter",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test rate_limiter.test.js",
+    "smoke": "node test_client.js"
+  }
+}

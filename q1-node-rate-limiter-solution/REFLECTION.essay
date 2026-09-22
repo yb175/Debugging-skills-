@@ -1,0 +1,11 @@
+# Reflection
+
+## Q1
+
+Explain the architectural tradeoffs of using a synchronous lock versus an asynchronous lock.
+
+In this Node.js version, compare synchronous in-memory operations on the event loop with an asynchronous lock or asynchronous storage. Also explain what would change if `worker_threads` were introduced.
+
+## Q2
+
+Explain how this architectural design would need to evolve for a multi-instance, horizontally scaled deployment, such as migrating from in-memory state to a distributed cache like Redis or Memcached.
