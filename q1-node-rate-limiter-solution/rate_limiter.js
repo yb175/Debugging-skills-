@@ -1,9 +1,8 @@
-'use strict';
- 
+"use strict";
+
 class RateLimiter {
-  
-  constructor(strategy = 'policy_a') {
-    if (!['policy_a', 'policy_b'].includes(strategy)) {
+  constructor(strategy = "policy_a") {
+    if (!["policy_a", "policy_b"].includes(strategy)) {
       throw new Error(`Unknown strategy: ${strategy}`);
     }
 
@@ -14,9 +13,10 @@ class RateLimiter {
   }
 
   check(clientId, endpoint, limit, windowMs, capacity, refillRate) {
-    const result = this.strategy === 'policy_a'
-      ? this.policyALimit(clientId, endpoint, limit, windowMs)
-      : this.policyBLimit(clientId, endpoint, capacity, refillRate);
+    const result =
+      this.strategy === "policy_a"
+        ? this.policyALimit(clientId, endpoint, limit, windowMs)
+        : this.policyBLimit(clientId, endpoint, capacity, refillRate);
 
     if (result.allowed) {
       this.totalAllowed += 1;
@@ -30,36 +30,69 @@ class RateLimiter {
   policyALimit(clientId, endpoint, limit, windowMs) {
     // Track accepted timestamps independently per client and endpoint.
     // Return { allowed, remaining, resetAfterMs }.
-    if(!this.state.get(`${clientId}|${endpoint}`)){
-        this.state.set(`${clientId}|${endpoint}`,[]); 
+    if (!this.state.get(`${clientId}|${endpoint}`)) {
+      this.state.set(`${clientId}|${endpoint}`, []);
     }
-    const reqQueue = this.state.get(`${clientId}|${endpoint}`) 
-    const threshold = Date.now()-windowMs ; 
-    while(reqQueue.length>0 && reqQueue[0]<=threshold){
-      reqQueue.shift(); 
+    const reqQueue = this.state.get(`${clientId}|${endpoint}`);
+    const threshold = Date.now() - windowMs;
+    while (reqQueue.length > 0 && reqQueue[0] <= threshold) {
+      reqQueue.shift();
     }
-    if(reqQueue.length<limit){
-      reqQueue.push(Date.now()) 
+    if (reqQueue.length < limit) {
+      reqQueue.push(Date.now());
       return {
-        allowed : true , 
-        remaining : limit-reqQueue.length,
-        resetAfterMs : Math.max(0, reqQueue[0] + windowMs - Date.now())
-      }
+        allowed: true,
+        remaining: limit - reqQueue.length,
+        resetAfterMs: Math.max(0, reqQueue[0] + windowMs - Date.now()),
+      };
     }
-    
+
     return {
-      allowed : false ,
-      remaining : 0 ,
-      resetAfterMs : Math.max(0, reqQueue[0] + windowMs - Date.now())
-    }
-    throw new Error('policyALimit not implemented');
+      allowed: false,
+      remaining: 0,
+      resetAfterMs: Math.max(0, reqQueue[0] + windowMs - Date.now()),
+    };
+    throw new Error("policyALimit not implemented");
   }
 
   policyBLimit(clientId, endpoint, capacity, refillRate) {
-    // TODO: Implement a token-bucket limiter.
     // Track fractional tokens and the last refill timestamp.
     // Return { allowed, remaining, resetAfterMs }.
-    throw new Error('policyBLimit not implemented');
+    const key = `${clientId}-${endpoint}`
+
+    // If key didn't exist 
+    if(!this.state.get(key)){
+      this.state.set(key,{
+        token : capacity,
+        lastRequest : Date.now() 
+      })
+    }
+
+    const state = this.state.get(key) ; 
+    const timeElapsed = (Date.now()-state.lastRequest)/1000 
+    state.token+=timeElapsed*refillRate ; 
+    state.token = Math.min(state.token,capacity) ; 
+
+    const currCapacity = state.token ; 
+    if(currCapacity-1>=0) {
+      this.state.set(key,{
+        token : currCapacity-1 ,
+        lastRequest : Date.now() 
+      })
+      return{
+        allowed : true , 
+        remaining : Math.floor(currCapacity-1),
+        resetAfterMs : 0
+      }
+    }
+
+    state.lastRequest  = Date.now() 
+    return {
+      allowed : false , 
+      remaining : 0 , 
+      resetAfterMs :  Math.ceil(
+    ((1 - currCapacity) / refillRate) * 1000)
+    }
   }
 
   stats() {
@@ -67,7 +100,7 @@ class RateLimiter {
       strategy: this.strategy,
       totalAllowed: this.totalAllowed,
       totalRejected: this.totalRejected,
-      activeKeys: this.state.size
+      activeKeys: this.state.size,
     };
   }
 }
