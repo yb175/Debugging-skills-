@@ -1,0 +1,3 @@
+# Reflection
+
+TODO: Describe the chosen locking strategy, snapshot semantics for returned discussion data, and how the design would change when horizontally scaled.
