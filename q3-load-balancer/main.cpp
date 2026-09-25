@@ -1,11 +1,6 @@
 #include <bits/stdc++.h>
 using namespace std;
 
-/*
-    Stripe OA style - Load Balancer / State Machine template
-    Parts usually unlock progressively.
-*/
-
 class LoadBalancer {
 private:
     int numTargets;
@@ -68,6 +63,8 @@ public:
         connectionSet.erase({count,serverIdx}) ;
 
         connectionSet.insert({count-1,serverIdx}) ; 
+
+        connections[serverIdx] = count-1 ; 
     }
 
     // Optional later parts
