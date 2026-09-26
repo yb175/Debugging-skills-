@@ -1,0 +1,15 @@
+{
+  "name": "q4-url-shortner",
+  "version": "1.0.0",
+  "description": "URL shortener service",
+  "main": "app.js",
+  "type": "module",
+  "scripts": {
+    "start": "node app.js",
+    "test": "node test_shortener.js",
+    "smoke": "node test_client.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
