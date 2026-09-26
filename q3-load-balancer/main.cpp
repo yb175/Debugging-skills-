@@ -7,14 +7,14 @@ private:
     vector<int> connections;                    // connections[i] = current load of server i+1
     unordered_map<string, int> connToServer;    // connectionId -> serverIndex (1-based)
     unordered_map<string, int> objectToServer;  // objectId -> serverIndex (sticky)
-
+    int maxConnectionPerTarget ;
     // number of connections , index 
     set<pair<int,int>> connectionSet ; 
 public:
 
-    LoadBalancer(int n) : numTargets(n) {
+    LoadBalancer(int n, int maxConnectionPerTarget) : numTargets(n) {
         connections.assign(n + 1, 0);           // 1-based indexing
-
+        this->maxConnectionPerTarget = maxConnectionPerTarget ; 
         // Initially all the servers are free !
         for(int i = 1 ; i<=n; i++){
             connectionSet.insert({0,i}) ; 
@@ -28,16 +28,19 @@ public:
         // number of connections associated with the servers 
         int cons ;
         int serverIdx  ;
-
         if(objectToServer.count(objectId)) {
             serverIdx = objectToServer[objectId];
-            cons=connections[serverIdx] ;
         }
         else {
-            cons = connectionSet.begin()->first ; 
+            cons = connectionSet.begin()->first ;
+            if(cons>=maxConnectionPerTarget) return -1 ; 
             serverIdx = connectionSet.begin()->second ; 
             objectToServer[objectId] = serverIdx;
         }
+
+        cons=connections[serverIdx] ;
+
+        if(cons>=maxConnectionPerTarget) return -1 ;
         // delete stale value 
         connectionSet.erase({cons,serverIdx}) ;
 
@@ -71,8 +74,8 @@ public:
     // void shutdown(int serverId) { ... }
 };
 
-vector<string> processRequests(int numTargets, const vector<string>& requests) {
-    LoadBalancer lb(numTargets);
+vector<string> processRequests(int numTargets, const vector<string>& requests , int maxConnectionPerTarget) {
+    LoadBalancer lb(numTargets,maxConnectionPerTarget);
     vector<string> logs;
 
     for (const string& req : requests) {
@@ -116,7 +119,7 @@ int main() {
         "CONNECT c4 u4 objC"
     };
 
-    vector<string> result = processRequests(numTargets, requests);
+    vector<string> result = processRequests(numTargets, requests,5);
 
     for (const string& line : result) {
         cout << line << "\n";
