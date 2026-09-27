@@ -6,16 +6,17 @@
  * map service outcomes to the required HTTP responses.
  */
 
-import express from 'express';
+import express from "express";
 import {
   CodeGenerationError,
   ConflictError,
+  CUSTOM_CODE_PATTERN,
   ExpiredLinkError,
   NotFoundError,
   PermissionDeniedError,
   URLShortener,
   ValidationError,
-} from './shortener.js';
+} from "./shortener.js";
 
 export const app = express();
 
@@ -28,12 +29,12 @@ export function error(res, message, status) {
 }
 
 export function shortUrlFor(req, shortCode) {
-  const host = req.get('host') || '127.0.0.1:8080';
-  const protocol = req.protocol || 'http';
+  const host = req.get("host") || "127.0.0.1:8080";
+  const protocol = req.protocol || "http";
   return `${protocol}://${host}/${shortCode}`;
 }
 
-app.post('/links', (req, res, next) => {
+app.post("/links", (req, res, next) => {
   /**
    * Create a short link.
    *
@@ -44,10 +45,13 @@ app.post('/links', (req, res, next) => {
    *
    * Success: 201 with link metadata, short_url, and owner_token.
    */
-  throw new Error('Not implemented');
+
+  // Extracting data from the body
+  const { long_url, custom_code, ttl_seconds } = req.body;
+  
 });
 
-app.get('/:short_code', (req, res, next) => {
+app.get("/:short_code", (req, res, next) => {
   /**
    * Redirect to the original URL.
    *
@@ -56,15 +60,15 @@ app.get('/:short_code', (req, res, next) => {
    * Expired code: 410.
    * A successful redirect must atomically increment hit_count exactly once.
    */
-  throw new Error('Not implemented');
+  throw new Error("Not implemented");
 });
 
-app.get('/links/:short_code', (req, res, next) => {
+app.get("/links/:short_code", (req, res, next) => {
   /** Return metadata for a short link, or 404 when it does not exist. */
-  throw new Error('Not implemented');
+  throw new Error("Not implemented");
 });
 
-app.delete('/links/:short_code', (req, res, next) => {
+app.delete("/links/:short_code", (req, res, next) => {
   /**
    * Delete a short link.
    *
@@ -74,39 +78,39 @@ app.delete('/links/:short_code', (req, res, next) => {
    * Missing code: 404.
    * Success: 200 with {"deleted": short_code}.
    */
-  throw new Error('Not implemented');
+  throw new Error("Not implemented");
 });
 
-app.get('/stats', (req, res, next) => {
+app.get("/stats", (req, res, next) => {
   /** Return aggregate statistics across non-deleted links. */
-  throw new Error('Not implemented');
+  throw new Error("Not implemented");
 });
 
 // Unsupported method handlers
-app.all('/links', (req, res) => {
-  if (req.method !== 'POST') {
+app.all("/links", (req, res) => {
+  if (req.method !== "POST") {
     return error(res, `Method ${req.method} not allowed`, 405);
   }
 });
 
-app.all('/stats', (req, res) => {
-  if (req.method !== 'GET') {
+app.all("/stats", (req, res) => {
+  if (req.method !== "GET") {
     return error(res, `Method ${req.method} not allowed`, 405);
   }
 });
 
 // JSON parsing error handler and general error handler
 app.use((err, req, res, next) => {
-  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
-    return error(res, 'Malformed JSON body', 400);
+  if (err instanceof SyntaxError && err.status === 400 && "body" in err) {
+    return error(res, "Malformed JSON body", 400);
   }
-  return error(res, err.message || 'Internal server error', err.status || 500);
+  return error(res, err.message || "Internal server error", err.status || 500);
 });
 
 const PORT = process.env.PORT || 8080;
-const HOST = process.env.HOST || '127.0.0.1';
+const HOST = process.env.HOST || "127.0.0.1";
 
-if (process.argv[1] && process.argv[1].endsWith('app.js')) {
+if (process.argv[1] && process.argv[1].endsWith("app.js")) {
   app.listen(PORT, HOST, () => {
     console.log(`Server listening on http://${HOST}:${PORT}`);
   });
