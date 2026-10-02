@@ -7,6 +7,8 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <charconv>
+#include <sstream>
 
 using namespace std;
 
@@ -43,6 +45,10 @@ optional<vector<string>> parseCsvLine(const string& line) {
     //   string currentField;
     //   bool insideQuotes = false;
     //
+    vector<string> fields ;
+    string currentField = "" ; 
+    bool insideQuotes = false ;
+    bool quoteClosed = false ; 
     // Be careful about:
     //   - commas inside quotes
     //   - escaped quotes: ""
@@ -50,7 +56,48 @@ optional<vector<string>> parseCsvLine(const string& line) {
     //   - characters following a closing quote
     //   - unclosed quotes
 
-    return nullopt;
+    // I have to parse character by character 
+    for(int i = 0 ; i<line.size() ; i++){
+        char ch = line[i] ; 
+        // only three possibilities 
+        if(ch==','){
+            // , is in the quotes 
+            if(insideQuotes==true){
+                currentField.push_back(',') ; 
+            }
+            else {
+                fields.push_back(currentField) ; 
+                // Reseting the current field 
+                currentField = "" ;    
+                insideQuotes = false ; 
+                quoteClosed = false ;  
+            }
+        }else if(ch=='"'){
+
+            // ""quoted"" this case 
+            if(i<line.size() && line[i+1]==ch){
+                currentField = currentField+"\"" ;
+                i++ ;  
+                continue; 
+            }
+            
+            if(insideQuotes==false) {
+                insideQuotes=true ; 
+            }
+            else {
+                insideQuotes = false ; 
+                quoteClosed = true ; 
+            }
+        }else {
+            if(quoteClosed) return nullopt ; 
+            currentField.push_back(ch) ; 
+        }
+    }
+
+    if(insideQuotes) return nullopt; 
+    fields.push_back(currentField) ; 
+
+    return fields ; 
 }
 
 // ---------------------------------------------------------
@@ -62,25 +109,40 @@ bool isValidCurrency(const string& currency) {
     // Valid currency:
     //   - exactly three characters
     //   - every character is between 'A' and 'Z'
-
-    return false;
+    if(currency.size()!=3) return false ; 
+    unordered_set<char> allowedChar ;
+    for(int i = 0 ; i<26 ; i++){
+        allowedChar.insert('A'+i) ; 
+    }
+    
+    for(int i = 0 ; i<3 ; i++){
+        if(allowedChar.find(currency[i])==allowedChar.end()) return false ; 
+    }
+    return true;
 }
 
 optional<int64_t> parsePositiveAmount(const string& value) {
-    // TODO:
-    // Convert value into a positive int64_t.
-    //
-    // Reject:
-    //   - empty values
-    //   - zero
-    //   - negative values
-    //   - decimal values
-    //   - trailing characters
-    //   - overflow
-    //
-    // std::from_chars is useful here.
+    if (value.empty()) {
+        return nullopt;
+    }
 
-    return nullopt;
+    int64_t amount;
+    const char* begin = value.data();
+    const char* end = value.data() + value.size();
+
+    auto result = from_chars(begin, end, amount);
+
+    // Invalid number or overflow
+    if (result.ec != errc{} || result.ptr != end) {
+        return nullopt;
+    }
+
+    // Must be strictly positive
+    if (amount <= 0) {
+        return nullopt;
+    }
+
+    return amount;
 }
 
 bool isValidStatus(const string& status) {
@@ -94,24 +156,115 @@ bool isValidStatus(const string& status) {
 // ---------------------------------------------------------
 
 ParseResult parseTransactions(const string& csv) {
-    // TODO:
-    //
-    // 1. Read the input line by line.
-    // 2. Ignore empty lines.
-    // 3. Validate the first non-empty line as the header.
-    // 4. Parse every subsequent line using parseCsvLine().
-    // 5. Validate all five fields.
-    // 6. Track valid transaction IDs with unordered_set<string>.
-    // 7. Count malformed, invalid, and duplicate rows.
-    //
-    // Throw invalid_argument if:
-    //   - no header exists
-    //   - the header is incorrect
-    
-    // Extraction 
-    
+    ParseResult result;
 
-    return {};
+    istringstream input(csv);
+    string line;
+
+    // Find first non-empty line -> header
+    string header;
+
+    while (getline(input, line)) {
+        if (!line.empty() && line != "\r") {
+            header = line;
+            break;
+        }
+    }
+
+    if (header.empty()) {
+        throw invalid_argument("Missing header");
+    }
+
+    // Validate header
+    const string expectedHeader =
+        "transaction_id,customer_id,amount,currency,status";
+
+    if (header == "\r") {
+        header.pop_back();
+    }
+
+    if (!header.empty() && header.back() == '\r') {
+        header.pop_back();
+    }
+
+    if (header != expectedHeader) {
+        throw invalid_argument("Invalid header");
+    }
+
+    unordered_set<string> transactionIds;
+
+    // Parse remaining rows
+    while (getline(input, line)) {
+
+        // Handle CRLF
+        if (!line.empty() && line.back() == '\r') {
+            line.pop_back();
+        }
+
+        // Ignore empty lines
+        if (line.empty()) {
+            continue;
+        }
+
+        auto fields = parseCsvLine(line);
+
+        // Malformed CSV
+        if (!fields || fields->size() != 5) {
+            result.invalidRows++;
+            continue;
+        }
+
+        const string& transactionId = (*fields)[0];
+        const string& customerId = (*fields)[1];
+        const string& amountStr = (*fields)[2];
+        const string& currency = (*fields)[3];
+        const string& status = (*fields)[4];
+
+        // Validate transaction/customer IDs
+        if (transactionId.empty() || customerId.empty()) {
+            result.invalidRows++;
+            continue;
+        }
+
+        // Validate amount
+        auto amount = parsePositiveAmount(amountStr);
+
+        if (!amount) {
+            result.invalidRows++;
+            continue;
+        }
+
+        // Validate currency
+        if (!isValidCurrency(currency)) {
+            result.invalidRows++;
+            continue;
+        }
+
+        // Validate status
+        if (!isValidStatus(status)) {
+            result.invalidRows++;
+            continue;
+        }
+
+        // Duplicate ID
+        if (transactionIds.count(transactionId)) {
+            result.invalidRows++;
+            continue;
+        }
+
+        // Only reserve the ID AFTER the entire row is valid
+        transactionIds.insert(transactionId);
+
+        result.transactions.push_back({
+            transactionId,
+            customerId,
+            *amount,
+            currency,
+            status
+        });
+    }
+
+    return result;
 }
 
 // ---------------------------------------------------------
